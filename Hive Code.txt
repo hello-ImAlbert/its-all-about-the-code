@@ -1,0 +1,59 @@
+Hive Code
+
+Beeline 
+-export to HDFS as .csv
+beeline_uw_prd_tez -u "jdbc:hive2://egs2hstlhdpmn01.network.uk.ad:2181,egs2hstlhdpmn02.network.uk.ad:2181/;serviceDiscoveryMode=zooKeeper;zooKeeperNamespace=hiveserver2" --hiveconf tez.queue.name=underwriting --showHeader=true --outputformat=tsv2 -e "select * from db_name.table_name;" | sed 's/[\t]/,/g' > /path_of_csv/file.csv 
+
+
+
+
+--IMPORT CSV
+
+drop table if exists uwdb_aw.TELEMATICS_NB ;
+
+CREATE TABLE uwdb_aw.TELEMATICS_NB 
+(	           QuoteNumber 	string 
+	,	PolicyNumber 	   string
+	,	DOB		   DATE
+	,	Forename	   STRING
+	,	Surname	  STRING
+	,	PurchaseDate	DATE
+)	row format delimited fields terminated by ',' stored as textfile  
+TBLPROPERTIES('skip.header.line.count'='1');
+
+LOAD DATA  INPATH '/user/wrighta3/TelematicsNewBusiness.csv' 	OVERWRITE INTO TABLE uwdb_aw.TELEMATICS_NB;
+
+select * from uwdb_aw.TELEMATICS_NB
+
+
+--DATE STRING TO A DATE
+cast(from_unixtime(unix_timestamp(d.DRIVER_DATEOFBIRTH ,'dd/MM/yyyy'), 'yyyy-MM-dd') as date)	AS DOB
+
+
+
+/* SAVING FILE ONTO THE HDFS AS .CSV*/
+set hive.exec.compress.output = false; --important otherwise unreadable
+INSERT OVERWRITE DIRECTORY '/group_landing/uw_landing/AW' -- this is a directory....
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT quotenr1, quotenr2, forenames, surname, dob, postcode, registration, convictiondate, offence_code, quotedatekey
+FROM uwdb_aw.qm_quotedata
+ order by quotenr1; 
+
+
+
+
+/*MACRO VARIABLES*/
+
+SET hivevar:ham=YEAR(from_unixtime(unix_timestamp()));
+SET  hivevar:ham2=CAST(YEAR(from_unixtime(unix_timestamp())) AS CHAR(20))	 ;
+SET  hivevar:ham3=CAST(${ham} AS CHAR(20))	 ;
+
+drop table if exists uwdb_aw.test_${hivevar:ham3}     ;
+create table uwdb_aw.test ---  select * from  uwdb_aw.test 
+AS
+select 	  ${ham}    	as today
+ 		,	${ham2} 	as today2
+ 		,	${ham3} 	as today3
+
+from uwdb_aw.albs_temp_hn
+;

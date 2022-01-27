@@ -1,0 +1,115 @@
+Netezza Code
+
+--Look at fields in database
+select * 
+from _v_view
+--where viewname='VW_TMR_MODELLING_T6_PRICINGSTRENGTH'
+;
+
+--look at columns in database
+select * 
+from _v_relation_column 
+;
+
+
+--looks at table metadata in Netezza
+select * 
+from _v_table
+;
+
+
+
+Build UW PERIOD
+,EXTRACT(YEAR FROM pp.PERIODSTART) || '/' || LPAD(EXTRACT(MONTH FROM pp.PERIODSTART),2,'0')  AS UWPERIOD
+
+
+
+
+Only keep  Letters and Numbers
+,NZSQLTOOLSDB.ADMIN.regexp_replace('123fjFJ--()df)jjd','[^A-Za-z0-9]','')
+
+Only keep  Letters 
+,NZSQLTOOLSDB.ADMIN.regexp_replace('123fjFJ--()df)jjd','[^A-Za-z]','')
+
+Only keep  Numbers
+,NZSQLTOOLSDB.ADMIN.regexp_replace('123fjFJ--()df)jjd','[^0-9]','')
+
+
+
+--GETTING FIRST DAY / LAST DAY ON A DATE
+select 
+    last_day(add_months(current_date,-1))+1 as firstday_currentmonth,
+	last_day(current_date) as lastday_currentmonth,
+    last_day(current_date)+1 as firstday_nextmonth
+;
+
+
+
+/*Duplicates*/
+
+ROW_NUMBER() OVER (PARTITION BY POLICYNUMBER 	 ORDER BY  POLICYNUMBER ) AS row
+
+/*ALTER TABLE NAME*/
+
+
+--alter table ANALYSIS_DB.AD.MASTERPOLICYTABLE
+--rename to ANALYSIS_DB.AD.MASTERPOLICYTABLE_yymm;
+
+
+/*CREATING A TABLE*/
+
+
+
+
+
+/*IMPORT DATA*/
+DROP TABLE ANALYSIS_DB.AD.ALBS_ODT	IF EXISTS;
+
+CREATE TABLE ANALYSIS_DB.AD.ALBS_ODT AS 
+SELECT * FROM EXTERNAL 'U:\Underwriting\Departmental\Temp Folders\albert\odt\ODT_Data.CSV'
+(		POLICYNUMBER 	BIGINT
+	,	FORENAME 		VARCHAR(100)
+	,	SURNAME			VARCHAR(100)
+	,	DOB				DATE
+	,	PURCHASEDATE	DATE
+)
+
+USING (
+DATESTYLE 'DMY'
+DATEDELIM '/'
+DELIMITER ','
+QUOTEDVALUE DOUBLE
+ENCODING 'INTERNAL' 
+REMOTESOURCE 'ODBC' 
+SKIPROWS 1
+LOGDIR 'C:\NZ\'--MAXERRORS 0
+ESCAPECHAR '\'
+FILLRECORD
+)
+
+DISTRIBUTE ON (POLICYNUMBER);
+
+/*EXPORT DATA*/
+CREATE external TABLE 'U:\Underwriting_Data\Data_Science\Team_Folders\AW\GIVE_ME_A_NAME.csv'
+USING (delimiter ',' ESCAPECHAR '\' remotesource 'odbc' includeheader ) AS
+SELECT *
+FROM analysis_db.AD.I_AM_A_TABLE ; 
+
+
+
+
+/*ALTER TABLE NAME*/
+ALTER TABLE ANALYSIS_DB.AD.OLD_TABLE_NAME   RENAME TO ANALYSIS_DB.AD.NEW_TABLE_NAMEMASTERPOLICYTABLE;
+
+
+
+/*DELETE FROM ANOTHER TABLE*/
+DELETE FROM TABLE1	a
+WHERE a.ID IN (SELECT b.ID FROM TABLE2  b )
+
+W
+/*SPLIT DRIVERNAME to FIRST NAME / SURNAME*/
+,substr(mpt.DRIVERNAME, 0, instr(mpt.DRIVERNAME, ' '))	                       as	FORENAME
+,TRANSLATE(substr(mpt.DRIVERNAME,instr(mpt.DRIVERNAME, ' ') +1), ' ' ,'')   as	SURNAME 
+
+

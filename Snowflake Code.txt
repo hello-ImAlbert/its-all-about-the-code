@@ -1,0 +1,138 @@
+snowflake code
+
+show columns in table DEV_UNDERWRITING.QUOTE_SRC.vw_polaris_veh_req ;
+
+
+--Create Query Tag for a Session
+ALTER SESSION SET QUERY_TAG = 'Query Tag' ;
+--Remove Query Tag for a session
+ALTER SESSION UNSET QUERY_TAG 
+
+--Add comment to a column
+alter table <DATABASE>.<SCHEMA>.<TABLE>   modify column <COLUMN>   comment 'column comment';
+
+--Add comment to a table
+create or REPLACE table <DATABASE>.<SCHEMA>.<TABLE>   comment='table comment'
+as
+select *
+from  <DATABASE>.<SCHEMA>.<TABLE> 
+limit 10;
+
+
+--HOW TO VIEW STORE PROCEDURES
+SHOW PROCEDURES ; 
+
+DESC PROCEDURE <CATALOG_NAME>.<SCHEMA_NAME>.<NAME>(<argument>) ;
+
+--EXAMPLE: DESC PROCEDURE WRK_UNDERWRITING.ENGINEERING.EKIN_IRF_INSERT_PROCEDURE(VARCHAR);
+
+
+--get ddl IN sf
+SELECT GET_DDL ('TABLE','MQT_VEH_REQ' ) 
+
+
+--PARSE ID_SCORE
+RTRIM(REPLACE(REPLACE(SUBSTRING(b.ID_SCORE_1, POSITION('1:', b.ID_SCORE_1), 5), ','), '1:')) 
+
+
+--searching the MQT_DATA_DICTIONARY
+select * from PRD_UNDERWRITING.QUOTE_PUB.MQT_DATA_DICTIONARY
+where INFORMATION_SCHEMA_NAME like ('%TELNO%')
+or TARGET_COLUMN_NAME like ('%TELNO%')
+
+
+
+-- Parameters/Dynamic SQL
+SET quote_period_start = DateAdd(day, -10, current_date()); 
+SET quote_period_end = current_date();
+
+--then to call them:  
+where DATE_FIELD between $quote_period_start and $quote_period_end
+
+
+--DECIMAL TO HEXADECIMAL
+to_char(<value>, 'XXXXXX')
+
+
+
+
+
+-- ___   __    _  _______  _______  __   __  _______  _______  ___   _______  __    _ 
+--|   | |  |  | ||       ||       ||  |_|  ||   _   ||       ||   | |       ||  |  | |
+--|   | |   |_| ||    ___||   _   ||       ||  |_|  ||_     _||   | |   _   ||   |_| |
+--|   | |       ||   |___ |  | |  ||       ||       |  |   |  |   | |  | |  ||       |
+--|   | |  _    ||    ___||  |_|  ||       ||       |  |   |  |   | |  |_|  ||  _    |
+--|   | | | |   ||   |    |       || ||_|| ||   _   |  |   |  |   | |       || | |   |
+--|___| |_|  |__||___|    |_______||_|   |_||__| |__|  |___|  |___| |_______||_|  |__|
+-- _______  _______  __   __  _______  __   __  _______                               
+--|       ||       ||  | |  ||       ||  |_|  ||   _   |                              
+--|  _____||       ||  |_|  ||    ___||       ||  |_|  |                              
+--| |_____ |       ||       ||   |___ |       ||       |                              
+--|_____  ||      _||       ||    ___||       ||       |                              
+-- _____| ||     |_ |   _   ||   |___ | ||_|| ||   _   |                              
+--|_______||_______||__| |__||_______||_|   |_||__| |__|                              
+
+
+
+--SIMPLE QUERIES TO VIEW TABLES/COLUMNS
+SELECT * 
+FROM PRD_UNDERWRITING.INFORMATION_SCHEMA.TABLES
+where   TABLE_SCHEMA = 'POLICY_PUB'
+    and TABLE_NAME = 'RECAST_POLARIS_RADAR_INPUT_SAMPLE'
+limit 100
+;
+
+SELECT * 
+FROM PRD_UNDERWRITING.INFORMATION_SCHEMA.COLUMNS
+where   TABLE_SCHEMA = 'POLICY_PUB'
+    and TABLE_NAME = 'RECAST_POLARIS_RADAR_INPUT_SAMPLE'
+order by ORDINAL_POSITION
+;
+
+
+--Query to know when the files were last created and size:
+ 
+SELECT TABLE_CATALOG || '.' || TABLE_SCHEMA || '.' || TABLE_NAME AS TABLE_PATH,
+    TABLE_NAME, TABLE_SCHEMA AS SCHEMA,
+    TABLE_CATALOG AS DATABASE, BYTES,
+    TO_NUMBER(BYTES / POWER(1024,3),10,2) AS GB,
+    LAST_ALTERED AS LAST_USE,
+    DATEDIFF('Day',LAST_USE,CURRENT_DATE) AS DAYS_SINCE_LAST_USE
+FROM INFORMATION_SCHEMA.TABLES
+WHERE DAYS_SINCE_LAST_USE > 90 --Use your Days Threshold
+AND TABLE_SCHEMA='MQT'
+ORDER BY BYTES DESC;
+
+
+
+
+
+
+-- _______  __    _  _______  _     _        _______  _______  ___     
+--|       ||  |  | ||       || | _ | |      |       ||       ||   |    
+--|  _____||   |_| ||   _   || || || |      |  _____||   _   ||   |    
+--| |_____ |       ||  | |  ||       |      | |_____ |  | |  ||   |    
+--|_____  ||  _    ||  |_|  ||       |      |_____  ||  |_|  ||   |___ 
+-- _____| || | |   ||       ||   _   |       _____| ||      | |       |
+--|_______||_|  |__||_______||__| |__|      |_______||____||_||_______|
+
+
+
+snowsql -a hstsf01.eu-west-1 -u <your_username>@hastingsdirect.com --authenticator externalbrowser
+snowsql -a hstsf01.eu-west-1 -u albertwright@hastingsdirect.com --authenticator externalbrowser
+
+
+
+copy into @etl_stage from PRD_UNDERWRITING.QUOTE_PUB.ALBS_TEST_DELETEME file_format =(format_name='CSV' compression='NONE') OVERWRITE=TRUE ;
+
+list @etl_stage;
+
+get @etl_stage/data_0_6_0.csv file://C:\Users\wrighta3\Documents;
+
+
+copy into @etl_stage from PRD_UNDERWRITING.QUOTE_PUB.ALBS_TEST_DELETEME file_format =(format_name='CSV' compression='NONE'null_if=('')) OVERWRITE=TRUE
+
+
+
+remove @etl_stage/data_0_0_0
+remove @etl_stage/ pattern='.*data_.*';
