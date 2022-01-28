@@ -1,0 +1,847 @@
+
+Error when doing testing
+COLLATE Latin1_General_CI_AS
+
+
+
+/*MAKING OWN PERMANENT LIBRARY*/
+LIBNAME OLI_LIB BASE "D:\SASFiles\Oli.Harvey";
+
+
+
+
+LIBNAME TEST_DWH ODBC  DBCOMMIT=0  DATASRC='DWH_TEST'  SCHEMA=dbo  USER=sasreadonly  PASSWORD="{SAS002}68B2795634BC149C100867F4224EC55E2D84A0DA" ;
+LIBNAME PROD_DWH ODBC  DBCOMMIT=0  DATASRC='DWH_PROD'  SCHEMA=dbo  USER=sasreadonly  PASSWORD="{SAS002}68B2795634BC149C100867F4224EC55E2D84A0DA" ;
+
+
+
+%let ENV = PROD ;
+LIBNAME &ENV._DWH ODBC  DBCOMMIT=0  DATASRC="DWH_&ENV."  SCHEMA=dbo  USER=sasreadonly  PASSWORD="{SAS002}68B2795634BC149C100867F4224EC55E2D84A0DA" ;
+
+
+/*GETTING ONTO RE */ 
+LIBNAME RE ODBC  DBCOMMIT=0  DATASRC='GOSHCC-RE1'  SCHEMA=dbo user='REOPEN7_PROD' password='730p3nP40d';
+
+
+		/*MACROS AND DATES AND LOOKING BACK IN TIME*/
+
+%let date     	   = %sysfunc (today())		    ;
+%let datelastmonth = %sysfunc (intnx(month, &date, -1)) ;
+%let namelastmonth = %sysfunc (putn( &datelastmonth, monname));  
+
+
+%TRIM(%QSYSFUNC(DATE(), NLDATE20.))
+
+
+		
+		/*GETTING START OF A FISCAL YEAR DATE FROM CHOOSING A CHARACTER FIELD */
+%let fiscal = 2010/11 ;
+%let fiscalyear = (INPUT(('01APR'||substr("&fiscal",1,4)),date9.) ) ;
+
+
+
+		/*Sorting out Fiscal Months for Graphs*/
+
+CASE 	WHEN dd.fiscal_month < 10 
+		THEN "0"||put(dd.fiscal_month, 1.)||" "||dd.month_name 
+		ELSE      put(dd.fiscal_month, 2.)||" "||dd.month_name 
+END 		as Month,
+		
+
+
+
+
+
+
+						/*MAEXPORT LOCATION*/
+LIBNAME MAEXPORT BASE "D:\SAS\Marketing Automation\MAEXPORT\" ;
+
+		
+
+
+
+			/*MERGING TABLES*/
+
+proc sort data=work.&script._dist ;
+		by address_id;
+run;
+proc sort data=dnpma.children ;
+		by address_id;
+run;
+proc sort data=DNPMA.PROFANITIES ;
+		by address_id;
+run;
+proc sort data=DNPMA.DNP_EXCLUDEHH ;
+		by address_id;
+run;
+
+data work.&script._supp ;
+keep person_id address_id seaware_ref mailability_flag paf_valid  ;
+	merge 	work.&script._dist	(IN=M)
+			DNPMA.children  		(IN=C)	
+			DNPMA.PROFANITIES		(IN=P)
+			DNPMA.DNP_EXCLUDEHH		(IN=H)
+;
+by address_id ;
+
+if M=1 and C=0 and P=0 and H=0  then output work.&script._supp ;
+run;
+
+
+
+
+
+
+			/* FIRST and LAST STATEMENT */
+
+proc sort data=work.TABLE_NAME_RAW ;
+by constituent_rk gift_date  ;
+run;
+
+data work.TABLE_NAME_DIST 
+/*(keep=person_id address_id seaware_ref mailability_flag paf_valid )*/
+;
+set work.TABLE_NAME_RAW ;
+by constituent_rk ;
+/*if first.dept_id then sum=0;*/
+/*sum+salary;*/
+if last.constituent_rk then output;
+run;
+
+
+
+
+
+
+
+
+
+
+
+
+
+						/*CREATING EXPORT FILES IN CODE*/
+
+PROC EXPORT
+DATA=work.FILE_NAME
+
+
+
+/*TAB DELIMITED*/
+OUTFILE="D:\SAS\Marketing Automation\MAExport\FILE_NAME.txt" 
+DBMS=TAB
+REPLACE; 
+
+/*CSV*/
+OUTFILE="D:\SAS\Marketing Automation\MAExport\FILE_NAME.csv" 
+DBMS=CSV
+REPLACE; 
+
+/*EXCEL*/
+OUTFILE="D:\SAS\Marketing Automation\MAExport\FILE_NAME.xls" 
+DBMS=XLS
+REPLACE; 
+
+/*BESPOKE DELIMITER*/
+OUTFILE="D:\SAS\Marketing Automation\MAExport\FILE_NAME.txt" 
+DBMS=DLM
+REPLACE;
+DELIMITER='|';
+
+
+
+run;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+						/*SENDING EMAILS*/
+
+filename doemail email 
+	From	=	("&SYSUSERID@GOSH.org")
+	To		= 	('Albert.Wright@GOSH.org' 'Stephen.Newberry@GOSH.org')
+	Cc		=	('Albert.Wright@GOSH.org')
+	Bcc		=	('Albert.Wright@GOSH.org')
+	Subject	=	'SUBJECT LINE - automated email' 
+/*	Attach	= 	("D:\SAS\Marketing Automation\MAExport\FILE_NAME.txt"   ct="application/octet-stream" */
+/*			"D:\SAS\Marketing Automation\MAExport\FILE_NAME.xls" 	ct="application/octet-stream" )*/
+;
+
+data _null_;	file doemail;
+
+	put "Hi," ;  
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put "Regards,"; 
+	put " "; 
+	put "Albert Wright"; 
+	put " ";
+
+run;
+
+
+
+
+
+
+
+		/* PROC APPEND */
+
+
+proc append base=WORK.TABLE1   data=WORK.TABLE2 FORCE ;
+run;
+
+
+
+
+
+
+
+		/*IMPORTING FREE DATA*/
+
+data MAREPORT.Mosaic_LiquidAssets;
+length MosaicLiquidAssets $ 50	UK_Count 8	UK_Percentage 8	mosaic_liquid_assets_2009 $ 50;
+infile datalines delimiter='|'; 
+INPUT MosaicLiquidAssets $	 UK_Count	UK_Percentage	mosaic_liquid_assets_2009 $ ;
+cards;
+0: Low Value (<£500)|10643342.7774|0.2253|Low Value (<£500)
+1: Medium Value (£500-£5 000)|14857218.391|0.3145|Medium Value (£500-£5,000)
+2: High Value (£5 000-£20 000)|12655799.0682|0.2679|High Value (£5,000-£20,000)
+3: Very High Value (£20 000+)|9084397.7634|0.1923|Very High Value (£20,000+)
+Unclassified|0|0|Unclassified
+;run;
+
+
+
+
+		/*IMPORTING FREE DATA BUT USING A MACRO VARIABLE*/
+
+%let datefrom = 01JUN2013 ;
+%let dateto = 31MAY2014;
+
+data work.narrative (drop=macro);
+length campaign_id $ 20	description $ 100 macro $ 100 ToalGifts 8	TotalConstituents 8  ;
+infile datalines delimiter='|'; 
+INPUT campaign_id $ 	macro $  ToalGifts	TotalConstituents ;
+description=dequote(resolve(quote(macro))) ;
+cards;
+.|.|.|.|.
+.|.|.|.|.
+.|.|.|.|.
+Report|Average Gift KPI|.|.
+Dates|&datefrom. to &dateto.|.|.
+ |This report determines the average Community gift per donor over a 12 Month period|.|.|.
+Author|Albert Wright|.|.|.
+Contact|Albert.Wright@GOSH.org|.|.|.
+;
+run;
+
+
+
+
+
+
+
+
+
+
+
+		/*DROPPING TABLES*/
+proc sql;
+drop table LIBNAME.TABLE1 ,
+	   LIBNAME.TABLE2
+;
+quit;
+
+
+
+		/* DROPPING ALL TABLES IN A LIBRARY */
+
+proc datasets library=libref kill;
+run;
+quit;
+
+
+
+		/* DELETING ROWS FOM A TABLE */
+
+proc sql;
+delete 
+from LIBNAME.TABLE
+/*where  variable = 'something'*/
+;quit;
+
+
+
+
+ 		/* DELETING FROM ANOTHER TABLE...  I THINK */
+
+PROC SQL;
+DELETE FROM     work.aw_tid2  a
+WHERE           tid NE  
+	(SELECT max(tid)
+		FROM work.aw_tid2  b
+		WHERE a.person_id = b.person_id);
+QUIT ;
+
+
+
+
+
+
+		/* SELECTING A PARTICULAR MONTH FROM TODAY() */
+
+proc sql;
+create table boba_fett_12
+as
+SELECT	constituent_rk
+FROM 	CM_Mart.PLEDGE
+WHERE datepart(gift_date) between (intnx('MONTH',today(),-12,"beginning")) 
+			      and (intnx('MONTH',today(),-12,"end"))
+;
+quit;
+
+
+
+
+
+
+
+
+
+
+
+
+
+	/* GETS THE FIRST TWO LETTERS OR 1 LETTER ROM POSTCODE */
+
+data a ;
+set CM_MART.contact_details (obs=100)  ;
+keep post_code postal_area ;
+postal_area= SUBSTR(post_code,1,ANYDIGIT(post_code)-1) ;
+run;
+
+
+
+
+		/* Academic Year */
+
+
+CASE 	WHEN dt.month is missing then ''
+		WHEN dt.month <=8  	then PUT((YEAR(dt.date_sk)-1),4.)||"/"||substr((PUT(YEAR(dt.date_sk),4.)),3,2)
+		WHEN dt.month >8	then PUT(YEAR(dt.date_sk),4.)||"/"||substr(PUT((YEAR(dt.date_sk)+1),4.),3,2)
+ELSE	'++++ERROR+++'
+		END 							as academic_year,
+
+left  join 	PROD_DWH.DATE_DIM				dt	on gf.gift_date_sk	= dt.date_sk
+
+
+
+
+
+
+
+
+	/* BASIC MACRO */	
+
+/* START OF MACRO, DECLARING THAT THE MACRO IS CALLED  ‘x’ */
+/* INSIDE BRACKETS ARE WHAT ‘x’ NEEDS TO WORK */ 
+%macro x(age_range=, table_name=); 
+
+data DM_&table_name; 
+set   sashelp.class; 
+if age in &age_range; 
+run; 
+
+%mend; 
+
+
+/* BELOW IS CALLING THE MACRO ‘x’ AND GIVING IT ITS FUNCTIONS */
+%x(age_range=(14,15),   table_name=Todd_The_Table) 
+%x(age_range=(14),       table_name=Brad_The_Table)
+%x(age_range=(12,13,14), table_name=Harold_The_Table)
+
+
+
+
+
+
+
+
+		/*COMPARING DATASETS*/
+
+%let dataset1=WORK.RGS_from_RE	;
+%let dataset2=WORK.QUERY_FOR_RGS_FROM_RE;
+%let sortby=surviving_constituent_rk	;
+
+proc sort data=&dataset1.	;
+by &sortby.			;
+run;
+proc sort data=&dataset2. 	;
+by &sortby.			;
+run;
+proc compare base=&dataset1.	compare=&dataset2. ;
+run;
+
+
+
+
+
+
+			/*OUTPUT DELIVERY SYSTEM*/
+
+
+ods listing close;
+
+/* .----------------.  .----------------.  .----------------. */
+/*| .--------------. || .--------------. || .--------------. |*/
+/*| |     ____     | || |  ________    | || |    _______   | |*/
+/*| |   .'    `.   | || | |_   ___ `.  | || |   /  ___  |  | |*/
+/*| |  /  .--.  \  | || |   | |   `. \ | || |  |  (__ \_|  | |*/
+/*| |  | |    | |  | || |   | |    | | | || |   '.___`-.   | |*/
+/*| |  \  `--'  /  | || |  _| |___.' / | || |  |`\____) |  | |*/
+/*| |   `.____.'   | || | |________.'  | || |  |_______.'  | |*/
+/*| |              | || |              | || |              | |*/
+/*| '--------------' || '--------------' || '--------------' |*/
+/* '----------------'  '----------------'  '----------------' */
+
+/* MAKING THE TABLES PRETTY AND EXPORTING AS EXCEL FORMAT */
+
+ODS TAGSETS.EXCELXP
+file="D:\SAS\Marketing Automation\MAEXPORT\AURRADS.xls"
+STYLE=Printer
+OPTIONS ( Orientation = 'landscape'
+FitToPage = 'yes'
+Pages_FitWidth = '1'
+Pages_FitHeight = '100' 
+embedded_titles = 'yes'
+/*Sheet_Name = 'Monthly Summary'*/
+)
+;
+
+ods tagsets.ExcelXP options(Sheet_Name="&dept. Monthly Summary");
+
+					/* T A B L E */ 
+TITLE;
+TITLE1 Height=17pt "Title" ;
+TITLE2 Height=16pt "Title" ;
+FOOTNOTE;
+FOOTNOTE1 ;
+PROC PRINT DATA=WORK.ATTRITION_GRAPHS_t 
+NOOBS	LABEL	
+    style(data)={tagattr="Format:text"}; 	/*MAKES ALL DATA A TEXT FIELD*/
+RUN; 
+QUIT;
+
+ods tagsets.ExcelXP options(Sheet_Name="&dept.");
+
+
+ods tagsets.excelxp close;
+QUIT;
+
+						/*SENDING EMAILS*/
+
+filename doemail email 
+	From		=	("SAS Report <MA@GOSH.org>")
+	To		= 	('Albert.Wright@GOSH.org' 'Stephen.Newberry@GOSH.org')
+	Cc		=	('Albert.Wright@GOSH.org')
+	Bcc		=	('Albert.Wright@GOSH.org')
+	Subject	=	'SUBJECT LINE - automated email' 
+/*	Attach	= 	("D:\SAS\Marketing Automation\MAEXPORT\AURRADS.xls"   ct="application/octet-stream" */
+/*			"D:\SAS\Marketing Automation\MAEXPORT\ANONTHER_SPREADSHEET.xls" 	ct="application/octet-stream" )*/
+;
+
+data _null_;	file doemail;
+
+	put "Hi," ;  
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put " "; 
+	put "Regards,"; 
+	put " "; 
+	put "Albert Wright"; 
+	put " ";
+
+run;
+
+
+
+
+
+
+
+
+
+
+
+/*	REMOVING DUPLICATES  ---  MAPPING TABLE FOR SURVIVNG_CONSTITUENT_RK	*/
+
+PROC SORT DATA=PROD_DWH.CONSTIT_SK_TO_SR_RK  
+(KEEP=constituent_rk surviving_constituent_rk) NODUPKEY 
+OUT=WORK.CONSTIT_MAP  ; 
+BY constituent_rk surviving_constituent_rk; 
+RUN;
+
+
+
+
+
+
+
+		/*GETTING MAILING LISTS VIS CONSTITUENT_APPEALS_FACT*/
+
+/*proc sql;*/
+/*create table WORK.DMW6213_mail*/
+/*as */
+/*SELECT	distinct */
+/**/
+/*CASE 	when   	(LENGTH(SUBSTR(ad.appeal_id,1,ANYDIGIT(ad.appeal_id)-1)) = 3) THEN substr(ad.appeal_id,1,7)  */
+/*		when   	(LENGTH(SUBSTR(ad.appeal_id,1,ANYDIGIT(ad.appeal_id)-1)) = 2) THEN substr(ad.appeal_id,1,6)  */
+/*		 ELSE ad.appeal_id  END  as APPEAL_GROUP,*/
+/*		 ad.appeal_id,*/
+/*	pd.package_id,*/
+/*	substr(pd.package_id,1,1) 	as Mailing,*/
+/*	substr(pd.package_id,3,1)	as Segment_B,*/
+/*	substr(pd.package_id,1,2)	as Segment_A,*/
+/*	substr(pd.package_id,4,1)	as Treatment,*/
+/**/
+/*	ad.appeal_id,*/
+/*	cap.surviving_constituent_rk,*/
+/*	cap.constituent_rk,*/
+/*    datepart(cap.constituent_appeal_date) label='Appeal Date' format ddmmyy10. 	as appeal_date , */
+/*	cap.constituent_appeal_date 												as  constituent_appeal_dttm*/
+/**/
+/*FROM  PROD_DWH.CONSTITUENT_APPEALS_FACT cap */
+/*	inner join 	PROD_DWH.APPEAL_DIM 	ad 	on cap.appeal_sk = ad.appeal_sk*/
+/*	inner join 	PROD_DWH.PACKAGE_DIM 	pd 	on cap.package_sk = Pd.package_sk*/
+/**/
+/*WHERE 	ad.appeal_id like "DMW6213V" */
+/*	and cap.surviving_constituent_rk not is null*/
+/*	and cap.surviving_constituent_rk > 0*/
+/*	and cap.deleted_date is null*/
+/*	and datepart(cap.constituent_appeal_date) = '12FEB2013'14371/d */
+/*ORDER BY cap.surviving_constituent_rk  ;*/
+/*quit;*/
+
+
+
+
+
+	/*  Conditional Formatting using a different variable  */
+
+/*ods _all_ close;*/
+proc format;
+  value $bck 'F' = 'pink'
+             'M' = 'lightblue';run;
+
+/*ods html file='c:\temp\hilite_val.html' style=sasweb;*/
+
+proc report data=sashelp.class nowd;
+  column name sex age height weight;
+  define name / order;
+  define sex / display 
+/*         style(column)={background=$bck.}*/
+;
+  define age / display;
+  define height / display;
+  define weight / display;
+  compute height;
+    if name = 'Alfred' then do;
+       call define(_col_,'style','style={background=lightgreen}');
+       call define('age','style','style={background=lightgreen}');
+    end;
+    else if name = 'Alice' then do;
+       call define(_col_,'style','style={background=yellow}');
+       call define('name','style','style={background=yellow}');
+    end;
+/*    else if substr(name,1,1) = 'J' then do;*/
+     if name NE ''   then do;
+       length svar $80;
+       ** make style value dynamically using format for SEX variable value;
+       svar = catt('style={background=',put(sex,$bck.),'}');
+       call define(_col_,'style',svar);
+    end;
+    endcomp;
+run;
+/*ods html close;*/
+
+
+
+/*TRANSPOSE*/
+
+PROC TRANSPOSE DATA=WORK.RFS_Action
+	OUT=WORK.tRFS_Action	(drop=Source label)
+	LET
+	NAME=Source
+	LABEL=Label;
+	BY action_id;  /*group*/
+	ID Attrib_Action_Category; /*new headings*/
+	VAR Attrib_Event_Type; 
+RUN;
+
+
+
+
+
+
+
+TITLE;
+TITLE1 JUSTIFY= LEFT "Total for the Year by Month";
+FOOTNOTE;
+FOOTNOTE1 JUSTIFY= LEFT "Generated on %TRIM(%QSYSFUNC(DATE(), NLDATE20.)) at %TRIM(%SYSFUNC(TIME(), TIMEAMPM12.))";
+
+
+
+
+PROC TABULATE
+DATA=WORK.mon_&dept. 
+style={JUST=CENTER VJUST=MIDDLE FOREGROUND=BLACK BACKGROUND=pink textalign=center }
+;
+VAR Total_Due  			/ s=[tagattr='wrap:yes'  FOREGROUND=BLACK BACKGROUND=cyan fontweight=bold 
+					bordercolor=black   borderleftwidth=4  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1]
+;
+VAR Volume_Active 		/ s=[tagattr='wrap:yes'  FOREGROUND=BLACK BACKGROUND=cyan fontweight=bold 
+					bordercolor=black borderleftwidth=1  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1]
+;
+VAR Total_Month_1_Lapse / s=[tagattr='wrap:yes'  FOREGROUND=BLACK BACKGROUND=cyan fontweight=bold 
+								bordercolor=black borderleftwidth=1  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1]
+;
+VAR Perc_Month_1_Lapse / s=[tagattr='wrap:yes'  FOREGROUND=BLACK BACKGROUND=cyan fontweight=bold 
+								bordercolor=black borderleftwidth=1  borderrightwidth=4 
+					bordertopwidth=1 borderbottomwidth = 1]
+;
+
+VAR blank  				/ s=[tagattr='wrap:yes'  FOREGROUND=BLACK BACKGROUND=BLACK borderwidth=0 ]
+;
+VAR  
+AccountClosed       				Calculation1
+AccountTransferred       			Calculation2
+DidNotClaimGift      				Calculation3
+
+  / s=[FOREGROUND=WHITE BACKGROUND=PURPLE ]
+;
+CLASS 	 Fiscal_Year /	ORDER=UNFORMATTED MISSING;
+CLASSLEV Fiscal_Year / s=[tagattr='wrap:yes' cellwidth=200  FOREGROUND=WHITE BACKGROUND=PURPLE fontweight=bold ]  ;
+CLASS 	 Month 		 /	ORDER=UNFORMATTED MISSING;
+CLASSLEV Month		 / s=[tagattr='wrap:yes' cellwidth=200  FOREGROUND=WHITE BACKGROUND=PURPLE fontweight=bold ]  ;
+CLASS 	 dept 		 /	ORDER=UNFORMATTED MISSING;
+CLASSLEV dept 		 / s=[FOREGROUND=BLACK BACKGROUND=PURPLE ]   ;
+
+
+TABLE 
+/* Row Dimension */
+Fiscal_Year=' '*
+Month=' ' 	
+,
+/* Column Dimension */
+Total_Due*		 
+  Sum=' '*f=10.0 *[style=[BACKGROUND=cyan bordercolor=black   borderleftwidth=4  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1] ] 
+Volume_Active*
+  Sum=' '*f=10.0 *[style=[BACKGROUND=cyan  bordercolor=black borderleftwidth=1  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1] ]
+Total_Month_1_Lapse*
+  Sum=' '*f=10.0 *[style=[BACKGROUND=cyan bordercolor=black borderleftwidth=1  borderrightwidth=1 
+					bordertopwidth=1 borderbottomwidth = 1] ]
+
+Perc_Month_1_Lapse*
+  Sum=' '*f=percent10.2 *[style=[BACKGROUND=cyan bordercolor=black borderleftwidth=1  borderrightwidth=4 
+					bordertopwidth=1 borderbottomwidth = 1] ]
+	/* seperator*/
+blank*
+sum=' ' *f=10.0 *[style=[BACKGROUND=black borderwidth=0 ]]
+
+ /*AURRADS*/
+AccountClosed      	 				* Sum=' '   *f=10.0
+Calculation1       					* Sum=' '   *f=PERCENT10.2
+AccountTransferred        			* Sum=' '   *f=10.0
+Calculation2       					* Sum=' '   *f=PERCENT10.2
+DidNotClaimGift       				* Sum=' '   *f=10.0
+Calculation3       					* Sum=' '   *f=PERCENT10.2
+
+		/ MISSTEXT = " "  BOX={STYLE={BACKGROUND=PINK NOBREAKSPACE=ON }}
+;
+;
+RUN;
+
+
+
+
+
+
+data work.manager (drop=Hire_Date) 
+work.nonmanager  (drop=Department Promotion_Date);
+infile 'employee_roles.dat'  ;
+input @1 ID 4. 
+@5 Name $20.
+@25 JobTitle $30.   @;
+Name=CATX(' ',scan(Name,2,', '),scan(Name,1,', ') ); /*taking apart name sticking together*/
+pos =find(JobTitle,'-'); /*finding the position of something in the middle to be used in SUBSTR later*/
+Department =substr(JobTitle,pos+2); /*grabing part of a variable with the number on line above*/ 
+JobTitle =substr(JobTitle,1,pos-2); /*grabing part of a variable with the number on line above*/ 
+if find(JobTitle,'MANAGER ','I')>0 then do;   /*IFs to deal with different formats for dates*/
+input @55 Promotion_Date date9. ; /*bringing in the dates*/
+output work.manager; /*outputting into data file*/
+end;
+else  do; /*not else if as its one of the other. otherwise it will be    if find(JobTitle,'MANAGER ','I')=0 then do */
+input @55 Hire_Date ddmmyy10. ;
+output work.nonmanager;
+end;
+drop pos; /*getting rid od
+
+
+
+proc contents data=orion.usorders04;run;
+
+proc print data=orion.usorders04;
+var customer_id  quantity total_retail_price;
+run;
+
+
+proc sort data=orion.usorders04 out=work.sUSorders04;
+by customer_id order_type ;run;
+
+
+
+data retailreward (keep=customer_id customer_name Total_Sales Total_Qty customer_group)
+cataloguereward (keep=customer_id customer_name Total_Sales Total_Qty)
+internetreward (keep=customer_id customer_name Total_Sales Total_Qty)
+OTHER ;
+set work.sUSorders04 ;
+by customer_id order_type ;
+if first.order_type  then do; 
+Total_Sales=0 ;
+Total_Qty=0;
+end;
+total_sales+(total_retail_price*quantity);
+total_qty+quantity;
+if last.order_type = 1 and total_sales > 99  then do;
+if order_type=1 then output work.retailreward;
+else if order_type=2 then output work.cataloguereward;
+else if order_type=3 then output work.internetreward;
+else output OTHER ;
+end;
+label Total_Sales = 'Total Sales'
+Total_Qty = 'Total Quants';
+FORMAT Total_Sales dollar10.2 ;
+run;
+
+
+
+/* CODE FROM KEN, RETAIN A DATE AND HAVE IT ON THE NEXT ROW  */
+
+id	Event		ActionDate
+1	Run		01/02/2011
+1	trek		08/07/2012
+2	run		04/05/2009
+2	run		04/05/2010
+2	bake sale	09/08/2010
+2	trek		25/13/2011
+2	cycle		24/12/2012
+3	trek		01/06/2013
+4	Fun Day		05/05/2005
+4	Sponsored Walk	08/09/2012
+4	Cycle		09/10/2013
+
+
+id	Event		ActionDate	ID's Next Action Date
+1	Run		01/02/2011	08/07/2012
+1	trek		08/07/2012	31/12/2099
+2	run		04/05/2009	04/05/2010
+2	run		04/05/2010	09/08/2010
+2	bake sale	09/08/2010	24/12/2012
+2	cycle		24/12/2012	25/12/2011
+2	trek		25/13/2011	31/12/2099
+3	trek		01/06/2013	31/12/2099
+4	Fun Day		05/05/2005	08/09/2012
+4	Sponsored Walk	08/09/2012	09/10/2013
+4	Cycle		09/10/2013	31/12/2099
+
+
+
+
+	/*THE KEY IS THAT THE SORT IS DESCENDING*/
+
+PROC SORT DATA=Events OUT=EventsWork; BY ID DESCENDING ActionDate; RUN;
+
+DATA Final;
+     SET EventsWork;
+     BY ID;
+
+     LENGTH PrevDate NextActionDate 8;
+     RETAIN PrevDate;
+
+     IF first.ID THEN NextActionDate=’31Dec2099’d;
+     ELSE NextActionDate=PrevDate;
+
+     PrevDate=ActionDate;
+
+     DROP PrevDate;
+RUN;
+
+
+So in the case of event 1, the input will be
+
+1	Trek	08/07/2012
+1     	Run	01/02/2011
+
+First time through (Trek), PrevDate will be retained as 8/7/12 and NextActionDate will be set to 31/12/2099 and output.
+Second time through (Run), the ELSE will be executed so NextActionDate will be set to PrevDate (8/7/12) and PrevDate then set to 1/12/11. This observation will then be output with a next action date of 8/7/12, taken from the previous observation.
+
+Exactly the same logic should apply for event 2, where the NextActionDate is taken from the previous observation’s ActionDate, and the first (most recent) NextActionDate is 31/12/2099.
+
+Event 3 has only one observation, so this should be output with a NextActionDate of 31/12/2099 as it’s the first for this event – the ELSE will never be executed for this event.
+
+Event 4 should work along similar lines to events 1 and 2.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
